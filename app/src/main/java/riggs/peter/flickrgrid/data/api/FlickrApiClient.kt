@@ -1,6 +1,6 @@
 package riggs.peter.flickrgrid.data.api
 
-import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Single
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -11,7 +11,7 @@ import retrofit2.http.Url
 
 interface FlickrApiClient {
     @GET
-    fun getSearchResults(@Url searchUrl: String): Observable<FlickrSearchResponse>
+    fun getSearchResults(@Url searchUrl: String): Single<FlickrSearchResponse>
 }
 
 object FlickrApiBuilder {
