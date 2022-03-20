@@ -17,10 +17,12 @@ import riggs.peter.flickrgrid.ui.viewmodels.FlickrSearchViewModelFactory
 
 class MainActivity : ComponentActivity() {
 
+    // The FlickrImageSearch repository to be used throughout the app
     private val repository = FlickrImageRepository(
         apiKey = BuildConfig.FLICKR_API_KEY,
         apiClient = FlickrApiBuilder.apiService
     )
+    // The FlickrSearchViewModel to be used by the FlickrSearchContainer
     private val flickrSearchViewModel: FlickrSearchViewModel by viewModels {
         FlickrSearchViewModelFactory(
             repository
