@@ -9,6 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 
+/**
+ * The text field used to search for Flickr images.
+ */
 @Composable
 fun SearchTextInput(onValueChange: (String) -> Unit) {
     var text by remember { mutableStateOf("") }

@@ -18,6 +18,12 @@ import riggs.peter.flickrgrid.R
 import riggs.peter.flickrgrid.models.FlickrImage
 import riggs.peter.flickrgrid.ui.theme.Grey3
 
+/**
+ * Displays a box to be used as a grid cell which contains a FlickrImage
+ *
+ * This implementation uses Glide (via https://github.com/skydoves/landscapist) to render the image
+ * and handle image loading and caching.
+ */
 @Composable
 fun FlickrImageGridCell(flickrImage: FlickrImage) {
     Box(

@@ -14,12 +14,14 @@ import androidx.compose.ui.unit.dp
 import riggs.peter.flickrgrid.ui.viewmodels.FlickrSearchViewModel
 
 
+/**
+ * Creates the Flickr Image search UI, with a search box at the top and a scrollable gridview
+ * underneath
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FlickrSearchContainer(viewModel: FlickrSearchViewModel) {
-
     val flickrImages = viewModel.searchResults.observeAsState().value ?: listOf()
-
     val verticalGridState = rememberLazyListState()
     if (verticalGridState.isScrollInProgress) {
         LocalFocusManager.current.clearFocus()

@@ -6,7 +6,7 @@ import org.junit.Assert.*
 import riggs.peter.flickrgrid.data.api.FlickrPhotoInfo
 
 /**
- * Tests for the FlickrPhotoInfo class
+ * Tests for the [FlickrPhotoInfo] class
  */
 class FlickrPhotoInfoTests {
     @Test

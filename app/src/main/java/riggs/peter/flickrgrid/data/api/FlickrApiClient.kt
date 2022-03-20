@@ -9,11 +9,23 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Url
 
+/**
+ * Basic interface for getting search results from the Flickr API.
+ */
 interface FlickrApiClient {
+
+    /**
+     * @param searchUrl generated from [FlickrSearchRequest.toSearchUrl]
+     * @return a FlickrSearchResponse as a [Single]
+     */
     @GET
     fun getSearchResults(@Url searchUrl: String): Single<FlickrSearchResponse>
 }
 
+/**
+ * Uses the retrofit library to build an implementation of the API client for connecting to the
+ * flickr API
+ */
 object FlickrApiBuilder {
 
     private const val BASE_URL = "https://api.flickr.com/"
@@ -32,5 +44,8 @@ object FlickrApiBuilder {
             .build()
     }
 
+    /**
+     * The API client implementation
+     */
     val apiService: FlickrApiClient = getRetrofit().create(FlickrApiClient::class.java)
 }

@@ -4,6 +4,9 @@ import org.junit.Assert
 import org.junit.Test
 import riggs.peter.flickrgrid.data.api.FlickrSearchRequest
 
+/**
+ * Tests for the [FlickrSearchRequest] class
+ */
 class FlickrSearchRequestTests {
 
     @Test

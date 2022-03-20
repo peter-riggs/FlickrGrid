@@ -12,20 +12,39 @@ import riggs.peter.flickrgrid.models.FlickrImage
 import riggs.peter.flickrgrid.repositories.FlickrImageRepository
 import java.util.concurrent.TimeUnit
 
+/**
+ * Represents the current state of the Flickr image search.
+ */
 data class SearchData(val searchText: String, val currentPage: Int)
 
+/**
+ * View model for the Flickr search screen.
+ */
 class FlickrSearchViewModel(private val repository: FlickrImageRepository) : ViewModel() {
+    // LiveData containing the search results as a list of FlickrImages
     private val _searchResults = MutableLiveData<List<FlickrImage>>(listOf())
     val searchResults: LiveData<List<FlickrImage>>
         get() = _searchResults
+
+    // A PublishSubject, used to convert the search text input to an observable stream which can
+    // be used to trigger queries to the repository
     private val searchTextSubject = PublishSubject.create<String>()
+    // disposable for the searchTextSubject, so we can clean up and avoid memory leaks when the
+    // view model has been destroyed
     private var searchTextDisposable: Disposable? = null
+    // represents the current state of the users search input
     private var searchData: SearchData? = null
 
     init {
         respondToSearchTextChanges()
     }
 
+    /**
+     * Sets up the searchTextSubject observable flow for handling new search inputs.
+     * This is responsible for triggering a fetch of Flickr image search data when the search text
+     * changes, and it ensures that requests aren't made too frequently and that backpressure is
+     * handled appropriately.
+     */
     private fun respondToSearchTextChanges() {
         searchTextDisposable = searchTextSubject
             .subscribeOn(Schedulers.io())
@@ -40,6 +59,10 @@ class FlickrSearchViewModel(private val repository: FlickrImageRepository) : Vie
             })
     }
 
+    /**
+     * Sets a new image list based on the new search text input
+     * @param searchText the new search text value
+     */
     private fun getImagesForNewSearch(searchText: String) {
         if (searchText.isBlank()) {
             _searchResults.value = listOf()
@@ -52,6 +75,11 @@ class FlickrSearchViewModel(private val repository: FlickrImageRepository) : Vie
         }
     }
 
+    /**
+     * Fetches the image data from the repository based on search input.
+     * @param newSearchData The search text and page to fetch
+     * @param onNewImagesFetched callback to be invoked on a successful fetch of image data
+     */
     private fun updateSearchResultsFromRepository(
         newSearchData: SearchData,
         onNewImagesFetched: (List<FlickrImage>) -> Unit
@@ -63,16 +91,24 @@ class FlickrSearchViewModel(private val repository: FlickrImageRepository) : Vie
             .subscribe({
                 onNewImagesFetched(it)
             }, {
-                _searchResults.value = listOf()
+                handleError(it)
             })
     }
 
+    /**
+     * To be called from the UI, whenever the search input text value changes
+     * @param searchText the new search text input value
+     */
     fun onNewSearchTextEntered(searchText: String) {
         // empty results
         _searchResults.value = listOf()
         searchTextSubject.onNext(searchText)
     }
 
+    /**
+     * To be called from the UI during scrolling to keep track of the current scroll position.
+     * This is used to trigger pagination.
+     */
     fun setFirstVisibleRowIndex(newRowIndex: Int) {
         val currentSearchData = searchData ?: return
         if (hasScrolledHalfwayPastLastPage(newRowIndex, currentSearchData)) {
@@ -87,6 +123,11 @@ class FlickrSearchViewModel(private val repository: FlickrImageRepository) : Vie
         }
     }
 
+    /**
+     * Calculation to figure out if the current scroll position of a grid has gone past the halfway
+     * point of the last page. This could be moved into a public utility function and be unit
+     * tested. Currently it contains hardcoded values for row length (grid cells) and page size.
+     */
     private fun hasScrolledHalfwayPastLastPage(
         newRowIndex: Int,
         currentSearchData: SearchData
@@ -99,11 +140,18 @@ class FlickrSearchViewModel(private val repository: FlickrImageRepository) : Vie
         return newRowIndex > halfwayPointOfCurrentPage
     }
 
+    /**
+     * Simply prints the error stacktrace and empties the string. This could be improved to provide
+     * an error UI data to be consumed by the UI.
+     */
     private fun handleError(throwable: Throwable) {
         throwable.printStackTrace()
         _searchResults.value = listOf()
     }
 
+    /**
+     * Clears the disposable subscribed to the search text subject when the view model is destroyed.
+     */
     override fun onCleared() {
         super.onCleared()
         searchTextDisposable?.dispose()

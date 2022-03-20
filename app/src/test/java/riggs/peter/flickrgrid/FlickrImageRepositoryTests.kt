@@ -9,6 +9,9 @@ import riggs.peter.flickrgrid.mocks.MockFlickrApiClient
 import riggs.peter.flickrgrid.models.FlickrImage
 import riggs.peter.flickrgrid.repositories.FlickrImageRepository
 
+/**
+ * Tests for the [FlickrImageRepository] class
+ */
 class FlickrImageRepositoryTests {
 
     @Test
