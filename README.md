@@ -27,7 +27,7 @@ buildConfigField "String", "FLICKR_API_KEY", "\"" + System.getenv("FLICKR_API_KE
 to
 
 ```
-buildConfigField "String", "FLICKR_API_KEY", "<your api key>"
+buildConfigField "String", "FLICKR_API_KEY", "\"<your api key>\""
 ```
 
 ## Running the app
