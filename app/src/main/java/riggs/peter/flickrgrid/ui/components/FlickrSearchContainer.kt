@@ -24,7 +24,7 @@ fun FlickrSearchContainer(viewModel: FlickrSearchViewModel) {
     if (verticalGridState.isScrollInProgress) {
         LocalFocusManager.current.clearFocus()
     }
-
+    viewModel.setFirstVisibleRowIndex(verticalGridState.firstVisibleItemIndex)
     Column(Modifier.padding(8.dp)) {
         SearchTextInput(onValueChange = { viewModel.onNewSearchTextEntered(it) })
         Spacer(Modifier.padding(4.dp))
