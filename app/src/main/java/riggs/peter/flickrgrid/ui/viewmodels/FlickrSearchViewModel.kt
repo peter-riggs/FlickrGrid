@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.BackpressureStrategy
+import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import io.reactivex.rxjava3.subjects.PublishSubject
@@ -29,70 +30,18 @@ class FlickrSearchViewModel(private val repository: FlickrImageRepository) : Vie
     // A PublishSubject, used to convert the search text input to an observable stream which can
     // be used to trigger queries to the repository
     private val searchTextSubject = PublishSubject.create<String>()
-    // disposable for the searchTextSubject, so we can clean up and avoid memory leaks when the
-    // view model has been destroyed
+
+    // Disposable for the searchTextSubject
     private var searchTextDisposable: Disposable? = null
-    // represents the current state of the users search input
+
+    // Disposable for the search results fetching
+    private var searchResultsFetchDisposable: Disposable? = null
+
+    // Represents the current state of the users search input
     private var searchData: SearchData? = null
 
     init {
         respondToSearchTextChanges()
-    }
-
-    /**
-     * Sets up the searchTextSubject observable flow for handling new search inputs.
-     * This is responsible for triggering a fetch of Flickr image search data when the search text
-     * changes, and it ensures that requests aren't made too frequently and that backpressure is
-     * handled appropriately.
-     */
-    private fun respondToSearchTextChanges() {
-        searchTextDisposable = searchTextSubject
-            .subscribeOn(Schedulers.io())
-            .distinctUntilChanged()
-            .debounce(500, TimeUnit.MILLISECONDS)
-            .toFlowable(BackpressureStrategy.LATEST)
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({
-                getImagesForNewSearch(it)
-            }, {
-                handleError(it)
-            })
-    }
-
-    /**
-     * Sets a new image list based on the new search text input
-     * @param searchText the new search text value
-     */
-    private fun getImagesForNewSearch(searchText: String) {
-        if (searchText.isBlank()) {
-            _searchResults.value = listOf()
-            searchData = null
-            return
-        }
-        val newSearchData = SearchData(searchText, 1)
-        updateSearchResultsFromRepository(newSearchData) {
-            _searchResults.value = it
-        }
-    }
-
-    /**
-     * Fetches the image data from the repository based on search input.
-     * @param newSearchData The search text and page to fetch
-     * @param onNewImagesFetched callback to be invoked on a successful fetch of image data
-     */
-    private fun updateSearchResultsFromRepository(
-        newSearchData: SearchData,
-        onNewImagesFetched: (List<FlickrImage>) -> Unit
-    ) {
-        searchData = newSearchData
-        repository.getFlickrImages(newSearchData.searchText, newSearchData.currentPage)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({
-                onNewImagesFetched(it)
-            }, {
-                handleError(it)
-            })
     }
 
     /**
@@ -112,21 +61,78 @@ class FlickrSearchViewModel(private val repository: FlickrImageRepository) : Vie
     fun setFirstVisibleRowIndex(newRowIndex: Int) {
         val currentSearchData = searchData ?: return
         if (hasScrolledHalfwayPastLastPage(newRowIndex, currentSearchData)) {
-            val newSearchData =
-                SearchData(currentSearchData.searchText, currentSearchData.currentPage + 1)
-            updateSearchResultsFromRepository(newSearchData) { nextImageList ->
-                val newList = _searchResults.value?.let { currentImageList ->
-                    currentImageList + nextImageList
-                } ?: return@updateSearchResultsFromRepository
-                _searchResults.value = newList
-            }
+            fetchAndUpdateNewPage(currentSearchData)
         }
     }
 
     /**
+     * Helper to fetch a new page of data for the current search term and append the results to the
+     * LiveData list.
+     */
+    private fun fetchAndUpdateNewPage(currentSearchData: SearchData) {
+        val newSearchData =
+            SearchData(currentSearchData.searchText, currentSearchData.currentPage + 1)
+        searchData = newSearchData
+        searchResultsFetchDisposable =
+            repository.getFlickrImages(newSearchData.searchText, newSearchData.currentPage)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ nextImageList ->
+                    val newList = _searchResults.value?.let { currentImageList ->
+                        currentImageList + nextImageList
+                    } ?: return@subscribe
+                    _searchResults.value = newList
+                }, {
+                    handleError(it)
+                })
+    }
+
+    /**
+     * Sets up the searchTextSubject observable flow for handling new search inputs.
+     * This is responsible for triggering a fetch of Flickr image search data when the search text
+     * changes. It ensures that requests aren't made too frequently and that outdated requests
+     * are cancelled.
+     */
+    private fun respondToSearchTextChanges() {
+        searchTextDisposable = searchTextSubject
+            .subscribeOn(Schedulers.io())
+            .distinctUntilChanged()
+            .debounce(200, TimeUnit.MILLISECONDS)
+            .toFlowable(BackpressureStrategy.LATEST)
+            .switchMap { input ->
+                getUpdatedResultsForNewSearch(input).toFlowable()
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                _searchResults.value = it
+            }, {
+                handleError(it)
+            })
+    }
+
+    /**
+     * Helper to get the list of new search results from the repository based off the new search
+     * text input.
+     * Also handles empty search strings and resetting the [searchData] object.
+     * @param searchText the new search input
+     */
+    private fun getUpdatedResultsForNewSearch(
+        searchText: String
+    ): Single<List<FlickrImage>> {
+        if (searchText.isBlank()) {
+            searchData = null
+            return Single.just(listOf())
+        }
+        val newSearchData = SearchData(searchText, 1)
+        searchData = newSearchData
+        return repository.getFlickrImages(newSearchData.searchText, newSearchData.currentPage)
+    }
+
+    /**
      * Calculation to figure out if the current scroll position of a grid has gone past the halfway
-     * point of the last page. This could be moved into a public utility function and be unit
-     * tested. Currently it contains hardcoded values for row length (grid cells) and page size.
+     * point of the last page.
+     * todo: This could be moved into a public utility function and be unit tested.
+     * Currently it contains hardcoded values for row length (grid cells) and page size.
      */
     private fun hasScrolledHalfwayPastLastPage(
         newRowIndex: Int,
@@ -150,10 +156,13 @@ class FlickrSearchViewModel(private val repository: FlickrImageRepository) : Vie
     }
 
     /**
-     * Clears the disposable subscribed to the search text subject when the view model is destroyed.
+     * Clears the disposables subscribed to the search text subject and search fetch observable when
+     * the view model is destroyed.
      */
     override fun onCleared() {
         super.onCleared()
+        searchResultsFetchDisposable?.dispose()
+        searchResultsFetchDisposable = null
         searchTextDisposable?.dispose()
         searchTextDisposable = null
     }
